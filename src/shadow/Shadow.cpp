@@ -38,6 +38,7 @@
 
 #define SHADOW_TOPIC_PREFIX "$aws/things/"
 #define SHADOW_TOPIC_MIDDLE "/shadow/"
+#define SHADOW_TOPIC_NAMED_SUFFIX "name/"
 
 #define SHADOW_DOCUMENT_EMPTY_STRING "{" \
 "    \"state\" : {" \
@@ -62,10 +63,11 @@
 
 namespace awsiotsdk {
     Shadow::Shadow(std::shared_ptr<MqttClient> p_mqtt_client, std::chrono::milliseconds mqtt_command_timeout,
-                   util::String &thing_name, util::String &client_token_prefix) {
+                   util::String &thing_name, util::String &client_token_prefix, std::optional<util::String> shadow_name) {
         p_mqtt_client_ = p_mqtt_client;
         mqtt_command_timeout_ = mqtt_command_timeout;
         thing_name_ = thing_name;
+        shadow_name_ = shadow_name;
         if (0 == client_token_prefix.length()) {
             client_token_prefix_ = thing_name;
         } else {
@@ -80,15 +82,24 @@ namespace awsiotsdk {
         shadow_topic_action_prefix_ = SHADOW_TOPIC_PREFIX;
         shadow_topic_action_prefix_.append(thing_name_);
         shadow_topic_action_prefix_.append(SHADOW_TOPIC_MIDDLE);
+        if (shadow_name_.has_value()) {
+            shadow_topic_action_prefix_.append(SHADOW_TOPIC_NAMED_SUFFIX);
+            shadow_topic_action_prefix_.append(shadow_name_.value());
+            shadow_topic_action_prefix_.append("/");
+        }
+
         shadow_topic_delete_ = shadow_topic_action_prefix_;
-        shadow_topic_delete_.append(SHADOW_REQUEST_TYPE_DELETE_STRING);
         shadow_topic_get_ = shadow_topic_action_prefix_;
-        shadow_topic_get_.append(SHADOW_REQUEST_TYPE_GET_STRING);
         shadow_topic_update_ = shadow_topic_action_prefix_;
+
+        shadow_topic_get_.append(SHADOW_REQUEST_TYPE_GET_STRING);
         shadow_topic_update_.append(SHADOW_REQUEST_TYPE_UPDATE_STRING);
+        shadow_topic_delete_.append(SHADOW_REQUEST_TYPE_DELETE_STRING);
+
         shadow_topic_delta_ = shadow_topic_update_;
         shadow_topic_delta_.append("/");
         shadow_topic_delta_.append(SHADOW_REQUEST_TYPE_DELTA_STRING);
+
         response_type_delta_text_ = SHADOW_RESPONSE_TYPE_DELTA_STRING;
         response_type_rejected_text_ = SHADOW_RESPONSE_TYPE_REJECTED_STRING;
         response_type_accepted_text_ = SHADOW_RESPONSE_TYPE_ACCEPTED_STRING;
@@ -105,7 +116,8 @@ namespace awsiotsdk {
 
     std::unique_ptr<Shadow> Shadow::Create(std::shared_ptr<MqttClient> p_mqtt_client,
                                            std::chrono::milliseconds mqtt_command_timeout,
-                                           util::String &thing_name, util::String &client_token_prefix) {
+                                           util::String &thing_name, util::String &client_token_prefix,
+                                           std::optional<util::String> shadow_name) {
         if (nullptr == p_mqtt_client || 0 == thing_name.length()) {
             return nullptr;
         }
@@ -113,7 +125,8 @@ namespace awsiotsdk {
         return std::unique_ptr<Shadow>(new Shadow(p_mqtt_client,
                                                   mqtt_command_timeout,
                                                   thing_name,
-                                                  client_token_prefix));
+                                                  client_token_prefix,
+                                                  shadow_name));
     }
 
     Shadow::~Shadow() {

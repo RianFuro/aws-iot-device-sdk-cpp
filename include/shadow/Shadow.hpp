@@ -29,6 +29,7 @@
 #include <chrono>
 #include <mutex>
 #include <atomic>
+#include <optional>
 
 #include "util/memory/stl/String.hpp"
 #include "util/memory/stl/Vector.hpp"
@@ -84,7 +85,7 @@ namespace awsiotsdk {
          * @param client_token_prefix - Client Token prefix to use for shadow operations
          */
         Shadow(std::shared_ptr<MqttClient> p_mqtt_client, std::chrono::milliseconds mqtt_command_timeout,
-               util::String &thing_name, util::String &client_token_prefix);
+               util::String &thing_name, util::String &client_token_prefix, std::optional<util::String> shadow_name = std::nullopt);
 
         // Rule of 5 stuff
         // Disable copying/moving because subscription handler callbacks will not carry over automatically
@@ -107,7 +108,8 @@ namespace awsiotsdk {
          */
         static std::unique_ptr<Shadow> Create(std::shared_ptr<MqttClient> p_mqtt_client,
                                               std::chrono::milliseconds mqtt_command_timeout, util::String &thing_name,
-                                              util::String &client_token_prefix);
+                                              util::String &client_token_prefix,
+                                              std::optional<util::String> shadow_name = std::nullopt);
 
         /**
          * @brief Update device shadow
@@ -286,6 +288,7 @@ namespace awsiotsdk {
         uint32_t cur_shadow_version_;                                      ///< Current version of the shadow as received from the server
 
         util::String thing_name_;                                          ///< Thing name for this shadow instance
+        std::optional<util::String> shadow_name_;                          ///< Name of the shadow to sync with
         util::String client_token_prefix_;                                 ///< Client token prefix being used for shadow actions
         util::String client_token_;                                        ///< Full client token as generated while constructing this instance
         util::String shadow_topic_action_prefix_;                          ///< Shadow topic action prefix

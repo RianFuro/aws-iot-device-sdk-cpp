@@ -20,6 +20,7 @@
  */
 
 #include <chrono>
+#include <optional>
 
 #include <gtest/gtest.h>
 
@@ -53,6 +54,7 @@
 
 #define SHADOW_TOPIC_PREFIX "$aws/things/"
 #define SHADOW_TOPIC_MIDDLE "/shadow/"
+#define SHADOW_TOPIC_NAME_SUFFIX "name/"
 
 #define SHADOW_DOCUMENT_EMPTY_TEMPLATE "{" \
 "    \"state\" : {" \
@@ -345,6 +347,65 @@ namespace awsiotsdk {
                 EXPECT_EQ(ResponseCode::SHADOW_UNEXPECTED_RESPONSE_TYPE, rc);
             }
 
+            TEST_F(ShadowTester, TestShadowSubscriptionHandlerForValidTopicsWithNamedShadow) {
+                EXPECT_NE(nullptr, p_iot_greengrass_client_);
+
+                std::unique_ptr<Shadow> test_shadow = Shadow::Create(p_iot_greengrass_client_, mqtt_command_timeout_,
+                                                                     p_thing_name_, p_thing_name_,
+                                                                     std::optional<util::String>{"ShadowName"});
+                EXPECT_NE(nullptr, test_shadow);
+
+                util::String get_base_topic = SHADOW_TOPIC_PREFIX + p_thing_name_ + SHADOW_TOPIC_MIDDLE + SHADOW_TOPIC_NAME_SUFFIX + "ShadowName/"
+                                              SHADOW_REQUEST_TYPE_GET_STRING + "/";
+
+                util::String get_rejected_topic = get_base_topic + SHADOW_RESPONSE_TYPE_REJECTED_STRING;
+                util::String get_accepted_topic = get_base_topic + SHADOW_RESPONSE_TYPE_ACCEPTED_STRING;
+                util::String get_delta_topic = get_base_topic + SHADOW_RESPONSE_TYPE_DELTA_STRING;
+
+                ResponseCode rc = test_shadow->SubscriptionHandler(get_accepted_topic, SHADOW_DOCUMENT_MODIFIED_VALUE_STRING,
+                                                                   nullptr);
+                EXPECT_EQ(ResponseCode::SHADOW_REQUEST_ACCEPTED, rc);
+
+                rc = test_shadow->SubscriptionHandler(get_rejected_topic, SHADOW_DOCUMENT_MODIFIED_VALUE_STRING, nullptr);
+                EXPECT_EQ(ResponseCode::SHADOW_REQUEST_REJECTED, rc);
+
+                rc = test_shadow->SubscriptionHandler(get_delta_topic, SHADOW_DOCUMENT_MODIFIED_VALUE_STRING, nullptr);
+                EXPECT_EQ(ResponseCode::SHADOW_UNEXPECTED_RESPONSE_TYPE, rc);
+
+                util::String update_base_topic = SHADOW_TOPIC_PREFIX + p_thing_name_ + SHADOW_TOPIC_MIDDLE + SHADOW_TOPIC_NAME_SUFFIX + "ShadowName/"
+                                                 SHADOW_REQUEST_TYPE_UPDATE_STRING + "/";
+
+                util::String udpate_rejected_topic = update_base_topic + SHADOW_RESPONSE_TYPE_REJECTED_STRING;
+                util::String update_accepted_topic = update_base_topic + SHADOW_RESPONSE_TYPE_ACCEPTED_STRING;
+                util::String update_delta_topic = update_base_topic + SHADOW_RESPONSE_TYPE_DELTA_STRING;
+
+                rc = test_shadow->SubscriptionHandler(update_accepted_topic, SHADOW_DOCUMENT_MODIFIED_VALUE_STRING_V2,
+                                                      nullptr);
+                EXPECT_EQ(ResponseCode::SHADOW_REQUEST_ACCEPTED, rc);
+
+                rc = test_shadow->SubscriptionHandler(udpate_rejected_topic, SHADOW_DOCUMENT_MODIFIED_VALUE_STRING, nullptr);
+                EXPECT_EQ(ResponseCode::SHADOW_REQUEST_REJECTED, rc);
+
+                rc = test_shadow->SubscriptionHandler(update_delta_topic, SHADOW_DOCUMENT_MODIFIED_VALUE_STRING_V3, nullptr);
+                EXPECT_EQ(ResponseCode::SHADOW_RECEIVED_DELTA, rc);
+
+                util::String delete_base_topic = SHADOW_TOPIC_PREFIX + p_thing_name_ + SHADOW_TOPIC_MIDDLE + SHADOW_TOPIC_NAME_SUFFIX + "ShadowName/"
+                                                 SHADOW_REQUEST_TYPE_DELETE_STRING + "/";
+
+                util::String delete_rejected_topic = delete_base_topic + SHADOW_RESPONSE_TYPE_REJECTED_STRING;
+                util::String delete_accepted_topic = delete_base_topic + SHADOW_RESPONSE_TYPE_ACCEPTED_STRING;
+                util::String delete_delta_topic = delete_base_topic + SHADOW_RESPONSE_TYPE_DELTA_STRING;
+
+                rc = test_shadow->SubscriptionHandler(delete_accepted_topic, SHADOW_DOCUMENT_MODIFIED_VALUE_STRING_V2,
+                                                      nullptr);
+                EXPECT_EQ(ResponseCode::SHADOW_REQUEST_ACCEPTED, rc);
+
+                rc = test_shadow->SubscriptionHandler(delete_rejected_topic, SHADOW_DOCUMENT_MODIFIED_VALUE_STRING, nullptr);
+                EXPECT_EQ(ResponseCode::SHADOW_REQUEST_REJECTED, rc);
+
+                rc = test_shadow->SubscriptionHandler(delete_delta_topic, SHADOW_DOCUMENT_MODIFIED_VALUE_STRING_V3, nullptr);
+                EXPECT_EQ(ResponseCode::SHADOW_UNEXPECTED_RESPONSE_TYPE, rc);
+            }
 
             TEST_F(ShadowTester, TestShadowHandleGetResponseWithValidPayload) {
                 EXPECT_NE(nullptr, p_iot_greengrass_client_);
